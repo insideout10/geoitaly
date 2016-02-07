@@ -1,0 +1,131 @@
+<?php
+
+/**
+ * This file defines the table structure for the module schema.
+ */
+
+/**
+ * see https://www.drupal.org/node/159605
+ * @return mixed
+ */
+function geoitaly_schema() {
+
+  $schema['geoitaly'] = array(
+    'fields'      => array(
+      'geonames_id'   => array(
+        'description' => 'The GeoNames id',
+        'type'        => 'int',
+        'size'        => 'big',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE
+      ),
+      'name'          => array(
+        'description' => 'The feature name',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE
+      ),
+      'latitude'      => array(
+        'description' => 'The feature latitude',
+        'type'        => 'float',
+        'size'        => 'big',
+        'not null'    => TRUE
+      ),
+      'longitude'     => array(
+        'description' => 'The feature longitude',
+        'type'        => 'float',
+        'size'        => 'big',
+        'not null'    => TRUE
+      ),
+      'feature_class' => array(
+        'description' => 'The feature class',
+        'type'        => 'char',
+        'length'      => 1,
+        'not null'    => TRUE
+      ),
+      'feature_code'  => array(
+        'description' => 'The feature code',
+        'type'        => 'varchar',
+        'length'      => 10,
+        'not null'    => TRUE
+      ),
+      'country_code'  => array(
+        'description' => 'The country code',
+        'type'        => 'char',
+        'length'      => 2,
+        'not null'    => TRUE
+      ),
+      'admin1_code'   => array(
+        'description' => '',
+        'type'        => 'varchar',
+        'length'      => 20,
+        'not null'    => TRUE
+      ),
+      'admin2_code'   => array(
+        'description' => '',
+        'type'        => 'varchar',
+        'length'      => 80,
+        'not null'    => TRUE
+      ),
+      'admin3_code'   => array(
+        'description' => '',
+        'type'        => 'varchar',
+        'length'      => 20,
+        'not null'    => TRUE
+      ),
+      'admin4_code'   => array(
+        'description' => '',
+        'type'        => 'varchar',
+        'length'      => 20,
+        'not null'    => TRUE
+      ),
+      'population'    => array(
+        'description' => '',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => FALSE
+      ),
+      'parent_id'     => array(
+        'description' => '',
+        'type'        => 'int',
+        'size'        => 'big',
+        'unsigned'    => TRUE,
+        'not null'    => FALSE
+      )
+    ),
+    'unique keys' => array(
+      'geonames_id' => array('geonames_id')
+    ),
+//    'primary key' => array('geonames_id')
+  );
+
+  return $schema;
+}
+
+function geoitaly_field_schema($field) {
+
+  return array(
+    'columns' => array(
+      'value' => array(
+        'type'     => 'int',
+        'size'     => 'big',
+        'not null' => TRUE
+      )
+    ),
+    'indexes' => array(
+      'value' => array('value'),
+    )
+  );
+}
+
+/**
+ * Implement hook_enable()
+ */
+function geoitaly_enable() {
+
+  //Check if table exists, if not install the schema.
+  if (db_table_exists('geoitaly') == FALSE) {
+    drupal_install_schema('geoitaly');
+
+  }
+}

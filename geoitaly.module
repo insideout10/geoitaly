@@ -1,0 +1,244 @@
+<?php
+
+module_load_include('inc', 'geoitaly', 'geoitaly.formatters');
+module_load_include('inc', 'geoitaly', 'geoitaly.widgets');
+
+// Define the IT.txt fields' indexes.
+define('GEOITALY_GN_CSV_GEONAME_ID', 0);
+define('GEOITALY_GN_CSV_NAME', 1);
+define('GEOITALY_GN_CSV_LATITUDE', 4);
+define('GEOITALY_GN_CSV_LONGITUDE', 5);
+define('GEOITALY_GN_CSV_FEATURE_CLASS', 6);
+define('GEOITALY_GN_CSV_FEATURE_CODE', 7);
+define('GEOITALY_GN_CSV_COUNTRY_CODE', 8);
+define('GEOITALY_GN_CSV_ADMIN1_CODE', 10);
+define('GEOITALY_GN_CSV_ADMIN2_CODE', 11);
+define('GEOITALY_GN_CSV_ADMIN3_CODE', 12);
+define('GEOITALY_GN_CSV_ADMIN4_CODE', 13);
+define('GEOITALY_GN_CSV_POPULATION', 14);
+
+// Define the hierarchy.txt fields' indexes.
+define('GEOITALY_GN_CSV_HIERARCHY_PARENT_ID', 0);
+define('GEOITALY_GN_CSV_HIERARCHY_CHILD_ID', 1);
+define('GEOITALY_GN_CSV_HIERARCHY_TYPE', 2);
+
+// Define the IT.zip download URL.
+define('GEOITALY_GN_COUNTRY_IT_URL', 'http://download.geonames.org/export/dump/IT.zip');
+
+// Define the hierarchy.zip download URL.
+define('GEOITALY_GN_HIERARCHY_URL', 'http://download.geonames.org/export/dump/hierarchy.zip');
+
+// Define the parent id for Italy.
+define('GEOITALY_COUNTRY_PARENT_ID', 3175395);
+
+function geoitaly_field_info() {
+
+  return array(
+    'geonames_feature' => array(
+      'label'             => t('GeoNames feature'),
+      'description'       => t('This field stores a GeoNames feature'),
+      'default_widget'    => 'geoitaly_geonames_feature',
+      'default_formatter' => 'geonames_feature_formatter',
+      'property type'     => 'geonames_feature'
+    )
+  );
+}
+
+/**
+ * Check whether a geonames_feature field is empty. This function always returns
+ * FALSE, because we consider the whole country as selected when an inside feature
+ * is not selected.
+ */
+function geoitaly_field_is_empty($item, $field) {
+
+  return FALSE;
+}
+
+/**
+ * Add a menu callbacks for the module:
+ *  * geoitaly/update_geonames_data to update data from GeoNames.
+ *
+ * @return array A key=>value array with this module's entries.
+ */
+function geoitaly_menu() {
+
+  $items['geoitaly/update_geonames_data'] = array(
+    'title'            => t('Update GeoNames data'),
+    'page callback'    => 'geoitaly_update_geonames_data',
+    // TODO: review the access arguments
+    'access arguments' => array('access content'),
+    'type'             => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * Update data by loading the country data from GeoNames. This function is called
+ * using http://.../geoitaly/update_geonames_data
+ */
+function geoitaly_update_geonames_data() {
+
+  dd('geoitaly_update_geonames_data :: start');
+
+  db_truncate('geoitaly')->execute();
+
+  _geoitaly_request(GEOITALY_GN_COUNTRY_IT_URL, '_geoitaly_process_response', array(
+    'zip_entry' => 'IT.txt',
+    'callback'  => '_geoitaly_process_country_line'
+  ));
+
+  _geoitaly_request(GEOITALY_GN_HIERARCHY_URL, '_geoitaly_process_response', array(
+    'zip_entry' => 'hierarchy.txt',
+    'callback'  => '_geoitaly_process_hierarchy_line'
+  ));
+
+  dd('geoitaly_update_geonames_data :: end');
+
+}
+
+/**
+ * Process a response from an httprl request by expanding the zip file received,
+ * extracting the file in the 'zip_entry' and calling the 'callback' for each line
+ * (defined in 'zip_entry' and 'callback' entries in the $args array respectively.
+ *
+ * @since 1.0.0
+ *
+ * @param object $response A response object.
+ * @param array $args An array containing a 'zip_entry' key with the filename to
+ * be extracted from the received zip and a 'callback' key with the function to
+ * call to process each line.
+ *
+ * @return bool TRUE if successful otherwise FALSE.
+ */
+function _geoitaly_process_response($response, $args) {
+
+  dd('processing response [ data length :: ' . strlen($response->data) . ' ]');
+
+  $file           = file_save_data($response->data);
+  $file_real_path = drupal_realpath($file->uri);
+
+  $zip = new ZipArchive;
+  if (!$zip->open($file_real_path)
+      || FALSE === ($handle = $zip->getStream($args['zip_entry']))
+  ) {
+    return FALSE;
+  }
+
+  $ll = 0;
+  while (FALSE !== ($line = fgetcsv($handle, 0, "\t"))) {
+
+    call_user_func($args['callback'], $line);
+
+    $ll++;
+
+  }
+
+  fclose($handle);
+
+  $zip->close();
+
+  file_delete($file);
+
+  dd("response processed [ lines :: $ll ]");
+
+  return TRUE;
+}
+
+/**
+ * Process a single line from the country file.
+ *
+ * @since 1.0.0
+ *
+ * @param array $line An array of fields from a single line.
+ *
+ * @throws \Exception
+ */
+function _geoitaly_process_country_line($line) {
+
+  // Ignore lines which are not an A class or an ADM\d code.
+  if ('A' !== $line[GEOITALY_GN_CSV_FEATURE_CLASS]
+      || ('ADM1' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+          && 'ADM2' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+          && 'ADM3' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+          && 'ADM4' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+          && 'ADM5' !== $line[GEOITALY_GN_CSV_FEATURE_CODE])
+  ) {
+    return;
+  }
+
+  // Insert the line in the database.
+  db_insert('geoitaly')->fields(array(
+    'geonames_id'   => $line[GEOITALY_GN_CSV_GEONAME_ID],
+    'name'          => $line[GEOITALY_GN_CSV_NAME],
+    'latitude'      => $line[GEOITALY_GN_CSV_LATITUDE],
+    'longitude'     => $line[GEOITALY_GN_CSV_LONGITUDE],
+    'feature_class' => $line[GEOITALY_GN_CSV_FEATURE_CLASS],
+    'feature_code'  => $line[GEOITALY_GN_CSV_FEATURE_CODE],
+    'country_code'  => $line[GEOITALY_GN_CSV_COUNTRY_CODE],
+    'admin1_code'   => $line[GEOITALY_GN_CSV_ADMIN1_CODE],
+    'admin2_code'   => $line[GEOITALY_GN_CSV_ADMIN2_CODE],
+    'admin3_code'   => $line[GEOITALY_GN_CSV_ADMIN3_CODE],
+    'admin4_code'   => $line[GEOITALY_GN_CSV_ADMIN4_CODE],
+    'population'    => $line[GEOITALY_GN_CSV_POPULATION],
+  ))->execute();
+
+}
+
+/**
+ * Process a single line from the hierarchy.txt file.
+ *
+ * @since 1.0.0
+ *
+ * @param array $line A line array.
+ */
+function _geoitaly_process_hierarchy_line($line) {
+
+  // Only handle ADM records.
+  if ('ADM' !== $line[GEOITALY_GN_CSV_HIERARCHY_TYPE]) {
+    return;
+  }
+
+  // Update the table by setting the parent id for the matching child id.
+  db_update('geoitaly')
+    ->fields(array(
+      'parent_id' => $line[GEOITALY_GN_CSV_HIERARCHY_PARENT_ID]
+    ))
+    ->condition('geonames_id', $line[GEOITALY_GN_CSV_HIERARCHY_CHILD_ID], '=')
+    ->execute();
+
+}
+
+/**
+ * Request the provided URL using httprl and call the callback when data is received.
+ *
+ * @since 1.0.0
+ *
+ * @param string $url The URL to query.
+ * @param string $callback The callback function to call when the response is received.
+ * @param array $callback_args A list of arguments for the callback.
+ */
+function _geoitaly_request($url, $callback, $callback_args = array()) {
+
+  // Prepare the variable which will hold the response.
+  $response = '';
+
+  // Set the default options (GET)
+  $options = array(
+    'method'              => 'GET',
+    'background_callback' => array(
+      array(
+        'function' => $callback,
+        'return'   => &$response
+      ),
+      $callback_args
+    )
+  );
+
+  // Queue the request.
+  httprl_request($url, $options);
+
+  // Execute request.
+  httprl_send_request();
+
+}

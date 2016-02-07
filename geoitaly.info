@@ -1,0 +1,9 @@
+name = geoitaly
+description = TODO: Description of module
+core = 7.x
+
+dependencies[] = httprl
+
+files[] = geoitaly.module
+files[] = geoitaly.formatters.inc
+files[] = geoitaly.widgets.inc
