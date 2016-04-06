@@ -34,7 +34,7 @@ function geoitaly_field_widget_form(&$form, &$form_state, $field, $instance, $la
   );
 
   // If values have been set by the user then load them.
-  if (isset($form_state['values'])) {
+  if (isset($form_state['values'][$field_name])) {
     foreach ($values as $key => $value) {
       $values[$key] = $form_state['values'][$field_name][LANGUAGE_NONE][0]['adm'][$key];
     }
