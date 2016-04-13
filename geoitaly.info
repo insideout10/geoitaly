@@ -1,5 +1,5 @@
 name = Geoitaly
-description = TODO: Description of module
+description = Provides a GeoNames field
 core = 7.x
 
 dependencies[] = httprl

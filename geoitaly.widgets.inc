@@ -34,7 +34,7 @@ function geoitaly_field_widget_form(&$form, &$form_state, $field, $instance, $la
   );
 
   // If values have been set by the user then load them.
-  if (isset($form_state['values'])) {
+  if (isset($form_state['values'][$field_name])) {
     foreach ($values as $key => $value) {
       $values[$key] = $form_state['values'][$field_name][LANGUAGE_NONE][0]['adm'][$key];
     }
@@ -61,7 +61,7 @@ function geoitaly_field_widget_form(&$form, &$form_state, $field, $instance, $la
   }
 
 
-  dd("geoitaly_field_widget_form [ field name :: $field_name ][ adm1 :: {$values['ADM1']}  ][ adm2 :: {$values['ADM2']} ][ adm3 :: {$values['ADM3']} ]");
+  // dd("geoitaly_field_widget_form [ field name :: $field_name ][ adm1 :: {$values['ADM1']}  ][ adm2 :: {$values['ADM2']} ][ adm3 :: {$values['ADM3']} ]");
 
   // Generate a unique fieldset id that we'll use to replace dynamically the content
   // when the user selects a value.
@@ -176,7 +176,7 @@ function _geoitaly_adm_selected($form, $form_state) {
  */
 function _geoitaly_options($feature_code, $parent_id = NULL) {
 
-  dd("_geoitaly_options [ feature code :: $feature_code ][ parent id :: $parent_id ]");
+  // dd("_geoitaly_options [ feature code :: $feature_code ][ parent id :: $parent_id ]");
 
   $options = array('' => '-');
 

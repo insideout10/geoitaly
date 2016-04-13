@@ -79,7 +79,7 @@ function geoitaly_menu() {
  */
 function geoitaly_update_geonames_data() {
 
-  dd('geoitaly_update_geonames_data :: start');
+  // dd('geoitaly_update_geonames_data :: start');
 
   db_truncate('geoitaly')->execute();
 
@@ -93,7 +93,7 @@ function geoitaly_update_geonames_data() {
     'callback'  => '_geoitaly_process_hierarchy_line'
   ));
 
-  dd('geoitaly_update_geonames_data :: end');
+  // dd('geoitaly_update_geonames_data :: end');
 
 }
 
@@ -113,7 +113,7 @@ function geoitaly_update_geonames_data() {
  */
 function _geoitaly_process_response($response, $args) {
 
-  dd('processing response [ data length :: ' . strlen($response->data) . ' ]');
+  // dd('processing response [ data length :: ' . strlen($response->data) . ' ]');
 
   $file           = file_save_data($response->data);
   $file_real_path = drupal_realpath($file->uri);
@@ -140,7 +140,7 @@ function _geoitaly_process_response($response, $args) {
 
   file_delete($file);
 
-  dd("response processed [ lines :: $ll ]");
+  // dd("response processed [ lines :: $ll ]");
 
   return TRUE;
 }
