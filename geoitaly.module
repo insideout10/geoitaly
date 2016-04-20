@@ -224,7 +224,6 @@ function _geoitaly_process_country_line($line) {
   $term = (object) array(
     'vid' => $taxonomy->vid,
     'tid' => empty($existing_term) ? NULL : $existing_term->tid,
-    'parent' => empty($existing_term) && !empty($existing_term->parent) ? array(0) : $existing_term->parent,
     'field_uri' => array(LANGUAGE_NONE => array(array('url' => sprintf('http://sws.geonames.org/%d/', $geonames_id)))),
     'field_gn_id' => array(LANGUAGE_NONE => array(array('value' => $geonames_id))),
     'name' => $line[GEOITALY_GN_CSV_NAME],
