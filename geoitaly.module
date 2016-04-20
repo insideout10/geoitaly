@@ -35,11 +35,11 @@ function geoitaly_field_info() {
 
   return array(
     'geonames_feature' => array(
-      'label'             => t('GeoNames feature'),
-      'description'       => t('This field stores a GeoNames feature'),
-      'default_widget'    => 'geoitaly_geonames_feature',
+      'label' => t('GeoNames feature'),
+      'description' => t('This field stores a GeoNames feature'),
+      'default_widget' => 'geoitaly_geonames_feature',
       'default_formatter' => 'geonames_feature_formatter',
-      'property type'     => 'geonames_feature'
+      'property type' => 'geonames_feature'
     )
   );
 }
@@ -63,14 +63,30 @@ function geoitaly_field_is_empty($item, $field) {
 function geoitaly_menu() {
 
   $items['geoitaly/update_geonames_data'] = array(
-    'title'            => t('Update GeoNames data'),
-    'page callback'    => 'geoitaly_update_geonames_data',
+    'title' => t('Update GeoNames data'),
+    'page callback' => 'geoitaly_update_geonames_data',
     // TODO: review the access arguments
     'access arguments' => array('access content'),
-    'type'             => MENU_CALLBACK
+    'type' => MENU_CALLBACK
+  );
+
+  $items['geoitaly/query'] = array(
+    'page callback' => 'geoitaly_query',
+    // TODO: review the access arguments
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK
   );
 
   return $items;
+}
+
+/**
+ *
+ */
+function geoitaly_query() {
+
+  var_dump(geoitaly_get_term_by_geonames_id($_GET['parent_id']));
+
 }
 
 /**
@@ -85,15 +101,21 @@ function geoitaly_update_geonames_data() {
 
   _geoitaly_request(GEOITALY_GN_COUNTRY_IT_URL, '_geoitaly_process_response', array(
     'zip_entry' => 'IT.txt',
-    'callback'  => '_geoitaly_process_country_line'
+    'callback' => '_geoitaly_process_country_line',
+    'post_callback' => 'geoitaly_import_hierarchy'
   ));
+
+}
+
+/**
+ * Import GeoNames hierarchy.
+ */
+function geoitaly_import_hierarchy() {
 
   _geoitaly_request(GEOITALY_GN_HIERARCHY_URL, '_geoitaly_process_response', array(
     'zip_entry' => 'hierarchy.txt',
-    'callback'  => '_geoitaly_process_hierarchy_line'
+    'callback' => '_geoitaly_process_hierarchy_line'
   ));
-
-  // dd('geoitaly_update_geonames_data :: end');
 
 }
 
@@ -114,13 +136,14 @@ function geoitaly_update_geonames_data() {
 function _geoitaly_process_response($response, $args) {
 
   // dd('processing response [ data length :: ' . strlen($response->data) . ' ]');
+  watchdog('geoitaly', 'Import starting [ file :: @file ]', array('@file' => $args['zip_entry']), WATCHDOG_INFO);
 
-  $file           = file_save_data($response->data);
+  $file = file_save_data($response->data);
   $file_real_path = drupal_realpath($file->uri);
 
   $zip = new ZipArchive;
   if (!$zip->open($file_real_path)
-      || FALSE === ($handle = $zip->getStream($args['zip_entry']))
+    || FALSE === ($handle = $zip->getStream($args['zip_entry']))
   ) {
     return FALSE;
   }
@@ -142,6 +165,13 @@ function _geoitaly_process_response($response, $args) {
 
   // dd("response processed [ lines :: $ll ]");
 
+  watchdog('geoitaly', 'Import complete [ file :: @file ]', array('@file' => $args['zip_entry']), WATCHDOG_INFO);
+
+  // If a callback to call after the import has been set, then call it.
+  if (isset($args['post_callback'])) {
+    return call_user_func($args['post_callback']);
+  }
+
   return TRUE;
 }
 
@@ -158,30 +188,62 @@ function _geoitaly_process_country_line($line) {
 
   // Ignore lines which are not an A class or an ADM\d code.
   if ('A' !== $line[GEOITALY_GN_CSV_FEATURE_CLASS]
-      || ('ADM1' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
-          && 'ADM2' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
-          && 'ADM3' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
-          && 'ADM4' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
-          && 'ADM5' !== $line[GEOITALY_GN_CSV_FEATURE_CODE])
+    || ('ADM1' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+      && 'ADM2' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+      && 'ADM3' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+      && 'ADM4' !== $line[GEOITALY_GN_CSV_FEATURE_CODE]
+      && 'ADM5' !== $line[GEOITALY_GN_CSV_FEATURE_CODE])
   ) {
     return;
   }
 
   // Insert the line in the database.
   db_insert('geoitaly')->fields(array(
-    'geonames_id'   => $line[GEOITALY_GN_CSV_GEONAME_ID],
-    'name'          => $line[GEOITALY_GN_CSV_NAME],
-    'latitude'      => $line[GEOITALY_GN_CSV_LATITUDE],
-    'longitude'     => $line[GEOITALY_GN_CSV_LONGITUDE],
+    'geonames_id' => $line[GEOITALY_GN_CSV_GEONAME_ID],
+    'name' => $line[GEOITALY_GN_CSV_NAME],
+    'latitude' => $line[GEOITALY_GN_CSV_LATITUDE],
+    'longitude' => $line[GEOITALY_GN_CSV_LONGITUDE],
     'feature_class' => $line[GEOITALY_GN_CSV_FEATURE_CLASS],
-    'feature_code'  => $line[GEOITALY_GN_CSV_FEATURE_CODE],
-    'country_code'  => $line[GEOITALY_GN_CSV_COUNTRY_CODE],
-    'admin1_code'   => $line[GEOITALY_GN_CSV_ADMIN1_CODE],
-    'admin2_code'   => $line[GEOITALY_GN_CSV_ADMIN2_CODE],
-    'admin3_code'   => $line[GEOITALY_GN_CSV_ADMIN3_CODE],
-    'admin4_code'   => $line[GEOITALY_GN_CSV_ADMIN4_CODE],
-    'population'    => $line[GEOITALY_GN_CSV_POPULATION],
+    'feature_code' => $line[GEOITALY_GN_CSV_FEATURE_CODE],
+    'country_code' => $line[GEOITALY_GN_CSV_COUNTRY_CODE],
+    'admin1_code' => $line[GEOITALY_GN_CSV_ADMIN1_CODE],
+    'admin2_code' => $line[GEOITALY_GN_CSV_ADMIN2_CODE],
+    'admin3_code' => $line[GEOITALY_GN_CSV_ADMIN3_CODE],
+    'admin4_code' => $line[GEOITALY_GN_CSV_ADMIN4_CODE],
+    'population' => $line[GEOITALY_GN_CSV_POPULATION],
   ))->execute();
+
+  // Get the GeoNames taxonomy.
+  $taxonomy = taxonomy_vocabulary_machine_name_load(DATIGOV_GEONAMES_TAXONOMY_NAME);
+
+  // Prepare a term object to save.
+  $geonames_id = $line[GEOITALY_GN_CSV_GEONAME_ID];
+
+  // If an existing term is found, we update it (by providing the TID in the term instance.
+  $existing_term = geoitaly_get_term_by_geonames_id($geonames_id);
+
+  $term = (object) array_merge(array(
+    'tid' => isset($existing_term) ? $existing_term->tid : NULL,
+    'parent' => isset($existing_term) ? $existing_term->parent : array(),
+    'vid' => $taxonomy->vid,
+  ), array(
+    'field_uri' => array(LANGUAGE_NONE => array(array('url' => sprintf('http://sws.geonames.org/%d/', $geonames_id)))),
+    'field_gn_id' => array(LANGUAGE_NONE => array(array('value' => $geonames_id))),
+    'name' => $line[GEOITALY_GN_CSV_NAME],
+    'field_gn_latitude' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_LATITUDE]))),
+    'field_gn_longitude' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_LONGITUDE]))),
+    'field_gn_feat_class' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_FEATURE_CLASS]))),
+    'field_gn_feat_code' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_FEATURE_CODE]))),
+    'field_gn_country_code' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_COUNTRY_CODE]))),
+    'field_gn_adm_1' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_ADMIN1_CODE]))),
+    'field_gn_adm_2' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_ADMIN2_CODE]))),
+    'field_gn_adm_3' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_ADMIN3_CODE]))),
+    'field_gn_adm_4' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_ADMIN4_CODE]))),
+    'field_gn_population' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_POPULATION]))),
+  ));
+
+  // Save the term data.
+  taxonomy_term_save($term);
 
 }
 
@@ -207,6 +269,42 @@ function _geoitaly_process_hierarchy_line($line) {
     ->condition('geonames_id', $line[GEOITALY_GN_CSV_HIERARCHY_CHILD_ID], '=')
     ->execute();
 
+  // Now look for an existing term using the ID.
+  $parent_id = $line[GEOITALY_GN_CSV_HIERARCHY_PARENT_ID];
+  $child_id = $line[GEOITALY_GN_CSV_HIERARCHY_CHILD_ID];
+
+  // If either the parent is null or the child is null, we cannot set the relationship.
+  if (NULL === ($parent = geoitaly_get_term_by_geonames_id($parent_id))
+    || NULL === ($child = geoitaly_get_term_by_geonames_id($child_id))
+  ) {
+    return;
+  }
+
+  // Set the parent array for the child term and save it.
+  $child->parent = array($parent->tid);
+  taxonomy_term_save($child);
+
+}
+
+/**
+ * Get a term in the GeoNames taxonomy, given the GeoNames id.
+ *
+ * @param int $id The GeoNames id.
+ * @return mixed|null The term or NULL if not found.
+ */
+function geoitaly_get_term_by_geonames_id($id) {
+
+  $query = new EntityFieldQuery();
+  $result = $query->entityCondition('entity_type', 'taxonomy_term')
+    ->entityCondition('bundle', DATIGOV_GEONAMES_TAXONOMY_NAME)
+    ->fieldCondition('field_gn_id', 'value', $id)
+    ->execute();
+
+  if (empty($result)) {
+    return NULL;
+  }
+
+  return entity_load_unchanged('taxonomy_term', key($result['taxonomy_term']));
 }
 
 /**
@@ -225,11 +323,11 @@ function _geoitaly_request($url, $callback, $callback_args = array()) {
 
   // Set the default options (GET)
   $options = array(
-    'method'              => 'GET',
+    'method' => 'GET',
     'background_callback' => array(
       array(
         'function' => $callback,
-        'return'   => &$response
+        'return' => &$response
       ),
       $callback_args
     )
