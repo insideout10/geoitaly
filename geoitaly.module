@@ -213,7 +213,6 @@ function _geoitaly_process_country_line($line) {
     'population' => $line[GEOITALY_GN_CSV_POPULATION],
   ))->execute();
 
-  // Get the GeoNames taxonomy.
   $taxonomy = taxonomy_vocabulary_machine_name_load(DATIGOV_GEONAMES_TAXONOMY_NAME);
 
   // Prepare a term object to save.
@@ -222,11 +221,10 @@ function _geoitaly_process_country_line($line) {
   // If an existing term is found, we update it (by providing the TID in the term instance.
   $existing_term = geoitaly_get_term_by_geonames_id($geonames_id);
 
-  $term = (object) array_merge(array(
-    'tid' => isset($existing_term) ? $existing_term->tid : NULL,
-    'parent' => isset($existing_term) ? $existing_term->parent : array(),
+  $term = (object) array(
     'vid' => $taxonomy->vid,
-  ), array(
+    'tid' => empty($existing_term) ? NULL : $existing_term->tid,
+    'parent' => empty($existing_term) ? NULL : $existing_term->parent,
     'field_uri' => array(LANGUAGE_NONE => array(array('url' => sprintf('http://sws.geonames.org/%d/', $geonames_id)))),
     'field_gn_id' => array(LANGUAGE_NONE => array(array('value' => $geonames_id))),
     'name' => $line[GEOITALY_GN_CSV_NAME],
@@ -240,10 +238,16 @@ function _geoitaly_process_country_line($line) {
     'field_gn_adm_3' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_ADMIN3_CODE]))),
     'field_gn_adm_4' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_ADMIN4_CODE]))),
     'field_gn_population' => array(LANGUAGE_NONE => array(array('value' => $line[GEOITALY_GN_CSV_POPULATION]))),
-  ));
+  );
 
   // Save the term data.
   taxonomy_term_save($term);
+
+  watchdog('geoitaly', 'Term saved [ vid :: @vid ][ tid :: @tid ][ existing :: @existing ]', array(
+    '@vid' => $term->vid,
+    '@tid' => $term->tid,
+    '@existing' => empty($existing_term) ? 'no' : 'yes'
+  ), WATCHDOG_DEBUG);
 
 }
 
