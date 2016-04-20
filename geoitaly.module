@@ -242,11 +242,11 @@ function _geoitaly_process_country_line($line) {
   // Save the term data.
   taxonomy_term_save($term);
 
-  watchdog('geoitaly', 'Term saved [ vid :: @vid ][ tid :: @tid ][ existing :: @existing ]', array(
-    '@vid' => $term->vid,
-    '@tid' => $term->tid,
-    '@existing' => empty($existing_term) ? 'no' : 'yes'
-  ), WATCHDOG_DEBUG);
+//  watchdog('geoitaly', 'Term saved [ vid :: @vid ][ tid :: @tid ][ existing :: @existing ]', array(
+//    '@vid' => $term->vid,
+//    '@tid' => $term->tid,
+//    '@existing' => empty($existing_term) ? 'no' : 'yes'
+//  ), WATCHDOG_DEBUG);
 
 }
 
