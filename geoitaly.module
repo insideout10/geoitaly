@@ -328,7 +328,7 @@ function _geoitaly_request($url, $callback, $callback_args = array()) {
   // Set the default options (GET)
   $options = array(
     'method' => 'GET',
-    'background_callback' => array(
+    'callback' => array(
       array(
         'function' => $callback,
         'return' => &$response

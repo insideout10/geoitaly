@@ -7,3 +7,4 @@ dependencies[] = httprl
 files[] = geoitaly.module
 files[] = geoitaly.formatters.inc
 files[] = geoitaly.widgets.inc
+files[] = geoitaly.drush.inc
